@@ -1,6 +1,5 @@
 package com.amarnath.shopkart.dto.response;
 
-import com.amarnath.shopkart.enums.Role;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.experimental.FieldDefaults;
@@ -11,12 +10,13 @@ import java.util.UUID;
 @Getter
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class AuthResponse {
+public class AddressResponse {
 
-    String token;
-    UUID userId;
-    String email;
-    String firstName;
-    String lastName;
-    Role role;
+    UUID id;
+    String street;
+    String city;
+    String state;
+    String zipCode;
+    String country;
+    boolean isDefault;
 }
