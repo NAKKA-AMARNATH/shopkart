@@ -1,5 +1,6 @@
 package com.amarnath.shopkart.services.impl;
 
+import com.amarnath.shopkart.config.CacheConfig;
 import com.amarnath.shopkart.dto.request.CreateCategoryRequest;
 import com.amarnath.shopkart.dto.response.CategoryResponse;
 import com.amarnath.shopkart.entities.Category;
@@ -11,6 +12,9 @@ import com.amarnath.shopkart.utils.SlugUtils;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,10 +28,13 @@ public class CategoryServiceImpl implements CategoryService {
 
     CategoryRepository categoryRepository;
 
+    // ── CREATE ─────────────────────────────────────────────────────────────────
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = CacheConfig.CACHE_CATEGORIES, allEntries = true),
+    })
     public CategoryResponse createCategory(CreateCategoryRequest request) {
-
         String slug = SlugUtils.generateSlug(request.getName());
 
         if (categoryRepository.existsBySlug(slug)) {
@@ -53,14 +60,17 @@ public class CategoryServiceImpl implements CategoryService {
         return mapToResponse(categoryRepository.save(category));
     }
 
+    // ── READ ───────────────────────────────────────────────────────────────────
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheConfig.CACHE_CATEGORIES, key = "#id")
     public CategoryResponse getCategoryById(UUID id) {
         return mapToResponse(findCategoryById(id));
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheConfig.CACHE_CATEGORIES, key = "'slug:' + #slug")
     public CategoryResponse getCategoryBySlug(String slug) {
         Category category = categoryRepository.findBySlug(slug)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -70,6 +80,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheConfig.CACHE_CATEGORIES, key = "'all'")
     public List<CategoryResponse> getAllCategories() {
         return categoryRepository.findByIsActiveTrue()
                 .stream()
@@ -79,6 +90,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheConfig.CACHE_CATEGORIES, key = "'top-level'")
     public List<CategoryResponse> getTopLevelCategories() {
         return categoryRepository.findByParentIsNull()
                 .stream()
@@ -88,6 +100,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheConfig.CACHE_CATEGORIES, key = "'subcategories:' + #parentId")
     public List<CategoryResponse> getSubcategories(UUID parentId) {
         findCategoryById(parentId);
         return categoryRepository.findByParentId(parentId)
@@ -96,8 +109,13 @@ public class CategoryServiceImpl implements CategoryService {
                 .toList();
     }
 
+    // ── UPDATE ─────────────────────────────────────────────────────────────────
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = CacheConfig.CACHE_CATEGORIES, key = "#id"),
+            @CacheEvict(value = CacheConfig.CACHE_CATEGORIES, allEntries = true),
+    })
     public CategoryResponse updateCategory(UUID id, CreateCategoryRequest request) {
         Category category = findCategoryById(id);
 
@@ -127,8 +145,13 @@ public class CategoryServiceImpl implements CategoryService {
         return mapToResponse(categoryRepository.save(category));
     }
 
+    // ── DELETE ─────────────────────────────────────────────────────────────────
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = CacheConfig.CACHE_CATEGORIES, key = "#id"),
+            @CacheEvict(value = CacheConfig.CACHE_CATEGORIES, allEntries = true),
+    })
     public void deleteCategory(UUID id) {
         Category category = findCategoryById(id);
 
@@ -140,8 +163,7 @@ public class CategoryServiceImpl implements CategoryService {
         categoryRepository.delete(category);
     }
 
-    // ===== PRIVATE HELPER METHODS =====
-
+    // ── PRIVATE HELPERS ────────────────────────────────────────────────────────
     private Category findCategoryById(UUID id) {
         return categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(

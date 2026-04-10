@@ -1,5 +1,6 @@
 package com.amarnath.shopkart.services.impl;
 
+import com.amarnath.shopkart.config.CacheConfig;
 import com.amarnath.shopkart.dto.request.CreateProductRequest;
 import com.amarnath.shopkart.dto.request.ProductVariantRequest;
 import com.amarnath.shopkart.dto.response.PagedResponse;
@@ -14,6 +15,9 @@ import com.amarnath.shopkart.utils.SlugUtils;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -37,10 +41,14 @@ public class ProductServiceImpl implements ProductService {
     UserRepository userRepository;
     ReviewRepository reviewRepository;
 
+    // ── CREATE ─────────────────────────────────────────────────────────────────
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = CacheConfig.CACHE_PRODUCTS,     allEntries = true),
+            @CacheEvict(value = CacheConfig.CACHE_PRODUCT_LIST, allEntries = true),
+    })
     public ProductResponse createProduct(CreateProductRequest request, UUID sellerId) {
-
         String slug = SlugUtils.generateSlug(request.getName());
         if (productRepository.existsBySlug(slug)) {
             throw new BusinessException("Product with this name already exists");
@@ -111,14 +119,17 @@ public class ProductServiceImpl implements ProductService {
         return mapToResponse(savedProduct);
     }
 
+    // ── READ ───────────────────────────────────────────────────────────────────
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheConfig.CACHE_PRODUCTS, key = "#id")
     public ProductResponse getProductById(UUID id) {
         return mapToResponse(findProductById(id));
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheConfig.CACHE_PRODUCTS, key = "'slug:' + #slug")
     public ProductResponse getProductBySlug(String slug) {
         Product product = productRepository.findBySlug(slug)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -128,6 +139,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheConfig.CACHE_PRODUCT_LIST, key = "'all:p' + #page + ':s' + #size")
     public PagedResponse<ProductResponse> getAllProducts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<Product> productPage = productRepository.findByIsActiveTrue(pageable);
@@ -136,6 +148,8 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheConfig.CACHE_PRODUCT_LIST,
+            key = "'cat:' + #categoryId + ':p' + #page + ':s' + #size")
     public PagedResponse<ProductResponse> getProductsByCategory(
             UUID categoryId, int page, int size) {
         categoryRepository.findById(categoryId)
@@ -147,24 +161,26 @@ public class ProductServiceImpl implements ProductService {
         return mapToPagedResponse(productPage);
     }
 
+    // ── SEARCH (not cached — too many filter combinations) ─────────────────────
     @Override
     @Transactional(readOnly = true)
     public PagedResponse<ProductResponse> searchProducts(
-            UUID categoryId,
-            String brand,
-            BigDecimal minPrice,
-            BigDecimal maxPrice,
-            String search,
-            int page,
-            int size) {
+            UUID categoryId, String brand, BigDecimal minPrice,
+            BigDecimal maxPrice, String search, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<Product> productPage = productRepository.findWithFilters(
                 categoryId, brand, minPrice, maxPrice, search, pageable);
         return mapToPagedResponse(productPage);
     }
 
+    // ── UPDATE ─────────────────────────────────────────────────────────────────
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = CacheConfig.CACHE_PRODUCTS,     key = "#id"),
+            @CacheEvict(value = CacheConfig.CACHE_PRODUCTS,     allEntries = true),
+            @CacheEvict(value = CacheConfig.CACHE_PRODUCT_LIST, allEntries = true),
+    })
     public ProductResponse updateProduct(UUID id, CreateProductRequest request, UUID sellerId) {
         Product product = findProductById(id);
 
@@ -191,8 +207,14 @@ public class ProductServiceImpl implements ProductService {
         return mapToResponse(productRepository.save(product));
     }
 
+    // ── DELETE (soft delete — still needs eviction) ────────────────────────────
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = CacheConfig.CACHE_PRODUCTS,     key = "#id"),
+            @CacheEvict(value = CacheConfig.CACHE_PRODUCTS,     allEntries = true),
+            @CacheEvict(value = CacheConfig.CACHE_PRODUCT_LIST, allEntries = true),
+    })
     public void deleteProduct(UUID id, UUID sellerId) {
         Product product = findProductById(id);
 
@@ -204,8 +226,7 @@ public class ProductServiceImpl implements ProductService {
         productRepository.save(product);
     }
 
-    // ===== PRIVATE HELPER METHODS =====
-
+    // ── PRIVATE HELPERS ────────────────────────────────────────────────────────
     private Product findProductById(UUID id) {
         return productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(
