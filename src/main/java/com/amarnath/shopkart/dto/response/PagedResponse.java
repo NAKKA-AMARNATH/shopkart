@@ -5,18 +5,17 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.experimental.FieldDefaults;
 
-import java.math.BigDecimal;
 import java.util.List;
-import java.util.UUID;
 
 @Getter
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class CartResponse {
+public class PagedResponse<T> {
 
-    UUID id;
-    UUID userId;
-    List<CartItemResponse> items;
-    int totalItems;
-    BigDecimal totalAmount;
+    List<T> content;
+    int page;
+    int size;
+    long totalElements;
+    int totalPages;
+    boolean last;
 }

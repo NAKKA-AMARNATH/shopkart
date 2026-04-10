@@ -5,18 +5,21 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.experimental.FieldDefaults;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
 @Getter
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class CartResponse {
+public class CategoryResponse {
 
     UUID id;
-    UUID userId;
-    List<CartItemResponse> items;
-    int totalItems;
-    BigDecimal totalAmount;
+    String name;
+    String slug;
+    String description;
+    String imageUrl;
+    boolean isActive;
+    UUID parentId;
+    String parentName;
+    List<CategoryResponse> children;
 }

@@ -1,7 +1,6 @@
 package com.amarnath.shopkart.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
@@ -12,13 +11,14 @@ import java.util.UUID;
 @Getter
 @Setter
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class CreateOrderRequest {
+public class CreateCategoryRequest {
 
-    @NotNull(message = "Shipping address is required")
-    UUID addressId;
+    @NotBlank(message = "Category name is required")
+    String name;
 
-    @NotBlank(message = "Payment method is required")
-    String paymentMethod;
+    String description;
 
-    String couponCode;
+    String imageUrl;
+
+    UUID parentId;
 }
