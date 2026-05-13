@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - monolith-completed
 
 jobs:
 
